@@ -423,7 +423,7 @@
   },
   "networks": {},
   "schemaVersion": "3.4.2",
-  "updatedAt": "2021-09-07T20:47:19.623Z",
+  "updatedAt": "2021-09-07T20:52:54.051Z",
   "devdoc": {
     "author": "dYdX * Interface that Callees for Solo must implement in order to ingest data.",
     "methods": {
