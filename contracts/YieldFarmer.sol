@@ -1,13 +1,13 @@
 pragma solidity ^0.5.7;
 pragma experimental ABIEncoderV2;
 
-import '@studydefi/money-legos/dydx/DydxFlashloanBase.sol';
+import "@studydefi/money-legos/dydx/contracts/DydxFlashloanBase.sol";
 import '@studydefi/money-legos/dydx/contracts/ICallee.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import './Compound.sol';
 
-contract YieldFarmer is ICallee, DydxFlashloanBase {
-    enum Direction { DEposit, Withdraw }
+contract YieldFarmer is ICallee, DydxFlashloanBase, Compound {
+    enum Direction { DEposit, Withdraw, Deposit }
     //define whate we wanna do
     struct Operation{
         address token;
@@ -18,7 +18,7 @@ contract YieldFarmer is ICallee, DydxFlashloanBase {
     }
     address public owner;
 
-    coonstructor() public {
+    constructor(address _comptroller) Compound(_comptroller) public {
         //set the address of the owner
         owner = msg.sender;        
     }
@@ -32,24 +32,23 @@ contract YieldFarmer is ICallee, DydxFlashloanBase {
         uint _amountBorrowed
     ) external {
         //protect the external function 
-        require(msg.sender == only, 'only owner');
+        require(msg.sender == owner, 'only owner');
           //-2 to pay 2 way for the flashloan
         _initiateFlashloan(_solo, _token, _cToken, Direction.Deposit, _amountProvided - 2, _amountBorrowed);
     }
 
     function closePosition(
-        tion openPosition(
         address _solo,
         address _token,
         address _cToken
     ) external {
-        require(msg.sender == only, 'only owner');
+        require(msg.sender == owner, 'only owner');
         //transfer 2 wei to this contract in order to pay for the flashloan
         IERC20(_token).transferFrom(msg.sender, address(this), 2);
         //claim our comp token as the reward for lender and borrower
         claimComp();
         //get borrow balance
-        uint borrowBalance = getBorrowBAlance(_cToken);
+        uint borrowBalance = getBorrowBalance(_cToken);
         //reimburse
         _initiateFlashloan(_solo, _token, _cToken, Direction.Withdraw, 0, borrowBalance);
         //transfer comp token to the sender of the transaction
@@ -64,22 +63,22 @@ contract YieldFarmer is ICallee, DydxFlashloanBase {
         //pointer
         IERC20 token = IERC20(_token);
         //get a token balance with the balance function
-        uint tokenBalance = token.balance(address(this));
+        uint tokenBalance = token.balanceOf(address(this));
         //transfer token to the sender
         token.transfer(msg.sender, tokenBalance);
     }
 
     function callFunction(        
-        addrress sender,
+        address sender,
         //teel us who borrowed the money
         Account.Info memory account,
         bytes memory data
     ) public {
         Operation memory operation = abi.decode(data, (Operation));
         //test amount we provided + amount from the flashloan
-        if(operarion.direction == Direction.Deposit) {
+        if(operation.direction == Direction.Deposit) {
             //lend the money to compound
-            supply(operation.cToken, operation.amountProvided + operationBorrowed);
+            supply(operation.cToken, operation.amountProvided + operation.amountBorrowed);
             //call the enter market function after we can leverage our collateral in order to borrow
             enterMarket(operation.cToken);
             //defined in Compound.sol, borrow the same amount we borrowed from the flashloan
