@@ -37,6 +37,38 @@ contract YieldFarmer is ICallee, DydxFlashloanBase {
         _initiateFlashloan(_solo, _token, _cToken, Direction.Deposit, _amountProvided - 2, _amountBorrowed);
     }
 
+    function closePosition(
+        tion openPosition(
+        address _solo,
+        address _token,
+        address _cToken
+    ) external {
+        require(msg.sender == only, 'only owner');
+        //transfer 2 wei to this contract in order to pay for the flashloan
+        IERC20(_token).transferFrom(msg.sender, address(this), 2);
+        //claim our comp token as the reward for lender and borrower
+        claimComp();
+        //get borrow balance
+        uint borrowBalance = getBorrowBAlance(_cToken);
+        //reimburse
+        _initiateFlashloan(_solo, _token, _cToken, Direction.Withdraw, 0, borrowBalance);
+        //transfer comp token to the sender of the transaction
+        address compAddress = getCompAddress();
+        //pointer to the comp token
+        IERC20 comp = IERC20(compAddress);
+        //get our balance of the comp
+        uint compBalance = comp.balanceOf(address(this));
+        //transfer to the sender of the transaction
+        comp.transfer(msg.sender, compBalance);
+        //transfer the underlying token to the sender of the transaction
+        //pointer
+        IERC20 token = IERC20(_token);
+        //get a token balance with the balance function
+        uint tokenBalance = token.balance(address(this));
+        //transfer token to the sender
+        token.transfer(msg.sender, tokenBalance);
+    }
+
     function callFunction(        
         addrress sender,
         //teel us who borrowed the money
@@ -54,10 +86,16 @@ contract YieldFarmer is ICallee, DydxFlashloanBase {
             borrow(operation.cToken, operation.amountBorrowed);
             //we don't borrow as much as a supply is because with compund it's not possible
             //we use a part of our collateral to cover a borrow
+        } else {
+            repayBorrow(operation.cToken, operation.amountBorrowed);
+            //specify ctoken balance owned by the smart contract
+            uint cTokenBalance = getcTokenBalance(operation.cToken);
+            //specify how much of the cToken we want to redeem
+            //the underlying token will be back in our smart contract after this
+            redeem(operation.cToken, cTokenBalance);
         }
       
     }
-
 
     function _initiateFlashloan(
     address _solo, 
